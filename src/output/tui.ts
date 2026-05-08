@@ -35,7 +35,7 @@ export function printTuiSummary(summary: RunSummary): void {
   console.log();
   const parts: string[] = [
     `${pc.green(`${summary.passed} passed`)}`,
-    summary.failed > 0 ? pc.red(`${summary.failed} failed`) : `${summary.failed} failed`,
+    summary.failed > 0 ? pc.red(`${summary.failed} failed`) : pc.gray(`${summary.failed} failed`),
     summary.errored > 0 ? pc.red(`${summary.errored} errored`) : `${summary.errored} errored`,
     pc.gray(`(${total} total)`),
   ];

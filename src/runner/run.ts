@@ -183,7 +183,7 @@ async function runOne(
       filePath,
       passed: false,
       verdict: null,
-      wallyResult: err instanceof WallyRunError ? null : null,
+      wallyResult: null,
       error: error.message,
       traceUrl: caseReport.traceUrl,
       durationMs: Date.now() - start,

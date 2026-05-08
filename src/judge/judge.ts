@@ -23,6 +23,8 @@ const JudgeResponseSchema = z.object({
   ),
 });
 
+const JUDGE_TIMEOUT_MS = 60_000;
+
 export interface JudgeArgs {
   model: LanguageModel;
   input: EvalMessage[];
@@ -35,15 +37,24 @@ export async function judgeElements(args: JudgeArgs): Promise<JudgeVerdict> {
 
   const prompt = buildPrompt(input, output, elements);
 
-  const { object } = await generateObject({
-    model,
-    schema: JudgeResponseSchema,
-    prompt,
-    // OpenAI reasoning models (gpt-5*, o-series) reject the temperature
-    // parameter; passing it just produces an AI SDK warning. For every
-    // other model we pin temperature: 0 so verdicts are deterministic.
-    ...(supportsTemperature(model) ? { temperature: 0 } : {}),
-  });
+  const abortController = new AbortController();
+  const timer = setTimeout(() => abortController.abort(), JUDGE_TIMEOUT_MS);
+
+  let object: z.infer<typeof JudgeResponseSchema>;
+  try {
+    ({ object } = await generateObject({
+      model,
+      schema: JudgeResponseSchema,
+      prompt,
+      abortSignal: abortController.signal,
+      // OpenAI reasoning models (gpt-5*, o-series) reject the temperature
+      // parameter; passing it just produces an AI SDK warning. For every
+      // other model we pin temperature: 0 so verdicts are deterministic.
+      ...(supportsTemperature(model) ? { temperature: 0 } : {}),
+    }));
+  } finally {
+    clearTimeout(timer);
+  }
 
   const byElement = new Map(object.results.map((r) => [r.element, r] as const));
 
@@ -53,7 +64,9 @@ export async function judgeElements(args: JudgeArgs): Promise<JudgeVerdict> {
       return {
         element,
         present: false,
-        reasoning: 'Judge did not return a result for this element.',
+        // Distinguish harness failure from genuine test failure so operators
+        // know to investigate the judge prompt rather than the agent output.
+        reasoning: 'HARNESS: judge did not return a result for this element (element text mismatch?).',
       };
     }
     return { element, present: r.present, reasoning: r.reasoning };

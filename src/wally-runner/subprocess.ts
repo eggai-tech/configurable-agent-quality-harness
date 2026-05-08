@@ -93,6 +93,7 @@ export async function runWally(input: WallyRunInput): Promise<WallyRunResult> {
     });
 
     const stdinPayload = JSON.stringify({ messages: input.messages });
+    child.stdin.on('error', () => {});
     child.stdin.end(stdinPayload);
   });
 }
